@@ -28,6 +28,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Activity Recognition (for workout tracking features) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
     <!-- Health Connect Permissions -->
     <!-- https://developer.android.com/health-and-fitness/guides/health-connect/plan/data-types#alpha10 -->
 

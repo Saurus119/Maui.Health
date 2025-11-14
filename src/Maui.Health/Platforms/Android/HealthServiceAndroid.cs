@@ -36,6 +36,11 @@ namespace Maui.Health.Services;
 
 public partial class HealthService
 {
+    // Workout session tracking
+    private DateTime? _workoutStartTime;
+    private ActivityType? _workoutActivityType;
+    private readonly object _sessionLock = new object();
+
     public partial bool IsSupported => IsSdkAvailable().IsSuccess;
 
     private Context _activityContext => Platform.CurrentActivity ??
@@ -1502,22 +1507,101 @@ public partial class HealthService
         };
     }
 
-    // TODO: Implement Android workout session using ExerciseClient API
     public partial Task<bool> StartWorkoutSessionAsync(ActivityType activityType, CancellationToken cancellationToken)
     {
-        // Android implementation would use Health Services ExerciseClient API
-        // This requires the Health Services library and is more complex
-        return Task.FromResult(false);
+        if (!IsSupported)
+        {
+            return Task.FromResult(false);
+        }
+
+        lock (_sessionLock)
+        {
+            if (_workoutStartTime.HasValue)
+            {
+                Debug.WriteLine("Android: Workout session already active");
+                return Task.FromResult(false);
+            }
+
+            _workoutStartTime = DateTime.Now;
+            _workoutActivityType = activityType;
+            Debug.WriteLine($"Android: Workout session started for {activityType} at {_workoutStartTime}");
+            return Task.FromResult(true);
+        }
     }
 
-    public partial Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken)
+    public async partial Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken)
     {
-        return Task.FromResult<WorkoutDto?>(null);
+        DateTime startTime;
+        ActivityType activityType;
+
+        lock (_sessionLock)
+        {
+            if (!_workoutStartTime.HasValue || !_workoutActivityType.HasValue)
+            {
+                Debug.WriteLine("Android: No active workout session to end");
+                return null;
+            }
+
+            startTime = _workoutStartTime.Value;
+            activityType = _workoutActivityType.Value;
+        }
+
+        try
+        {
+            var endTime = DateTime.Now;
+            Debug.WriteLine($"Android: Ending workout session - Duration: {(endTime - startTime).TotalMinutes:F1} minutes");
+
+            // Create workout DTO
+            var workoutDto = new WorkoutDto
+            {
+                Id = "",
+                DataOrigin = "DemoApp",
+                ActivityType = activityType,
+                Title = activityType.ToString(),
+                StartTime = startTime,
+                EndTime = endTime,
+                Timestamp = startTime
+            };
+
+            // Write the workout to Health Connect
+            var success = await WriteHealthDataAsync(workoutDto, cancellationToken);
+
+            if (success)
+            {
+                Debug.WriteLine("Android: Workout session ended and saved successfully");
+                CleanupSession();
+                return workoutDto;
+            }
+            else
+            {
+                Debug.WriteLine("Android: Failed to save workout");
+                CleanupSession();
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Android: Exception ending workout session: {ex.Message}");
+            CleanupSession();
+            return null;
+        }
     }
 
     public partial bool IsWorkoutSessionActive()
     {
-        return false;
+        lock (_sessionLock)
+        {
+            return _workoutStartTime.HasValue;
+        }
+    }
+
+    private void CleanupSession()
+    {
+        lock (_sessionLock)
+        {
+            _workoutStartTime = null;
+            _workoutActivityType = null;
+        }
     }
 }
 

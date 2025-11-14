@@ -292,7 +292,8 @@ public partial class Home
             if (result)
             {
                 _isWorkoutSessionActive = true;
-                _workoutSessionMessage = "Workout session started! The workout is now tracking in Apple Health.";
+                var platform = _isIOS ? "Apple Health" : "Health Connect";
+                _workoutSessionMessage = $"Workout session started! The workout is now tracking in {platform}.";
                 _workoutSessionSuccess = true;
             }
             else

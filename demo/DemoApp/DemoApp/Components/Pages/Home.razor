@@ -1,18 +1,39 @@
 ﻿@page "/"
 
-<div style="margin-bottom: 20px;">
-    <button @onclick="PopulateDemoData" disabled="@(!_isAndroid)" style="padding: 10px 20px; background-color: @(_isAndroid ? "#007bff" : "#6c757d"); color: white; border: none; border-radius: 4px; cursor: @(_isAndroid ? "pointer" : "not-allowed");">
-        Populate Demo Data
-    </button>
-    @if (!_isAndroid)
-    {
-        <p style="color: #6c757d; margin-top: 10px; font-style: italic;">Writing demo data is available only for Android.</p>
-    }
-    @if (!string.IsNullOrEmpty(_demoDataMessage))
-    {
-        <p style="color: @(_demoDataSuccess ? "green" : "red"); margin-top: 10px;">@_demoDataMessage</p>
-    }
-</div>
+@if (_isAndroid)
+{
+    <div style="margin-bottom: 20px;">
+        <h3>Live Workout Session</h3>
+        @if (!_isWorkoutSessionActive)
+        {
+            <button @onclick="StartWorkoutSession" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                Start Strength Training Session
+            </button>
+        }
+        else
+        {
+            <button @onclick="EndWorkoutSession" style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                End Workout Session
+            </button>
+            <span style="color: #28a745; font-weight: bold;">● Session Active</span>
+        }
+        @if (!string.IsNullOrEmpty(_workoutSessionMessage))
+        {
+            <p style="color: @(_workoutSessionSuccess ? "green" : "red"); margin-top: 10px;">@_workoutSessionMessage</p>
+        }
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <h3>Quick Demo Data (Historical)</h3>
+        <button @onclick="PopulateDemoData" style="padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Populate Demo Data
+        </button>
+        @if (!string.IsNullOrEmpty(_demoDataMessage))
+        {
+            <p style="color: @(_demoDataSuccess ? "green" : "red"); margin-top: 10px;">@_demoDataMessage</p>
+        }
+    </div>
+}
 
 @if (_isIOS)
 {
@@ -46,6 +67,16 @@
         {
             <p style="color: @(_iosStrengthTrainingSuccess ? "green" : "red"); margin-top: 10px;">@_iosStrengthTrainingMessage</p>
         }
+    </div>
+}
+
+@if (!_isAndroid && !_isIOS)
+{
+    <div style="margin-bottom: 20px;">
+        <button disabled style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: not-allowed;">
+            Populate Demo Data
+        </button>
+        <p style="color: #6c757d; margin-top: 10px; font-style: italic;">Writing demo data is available only for Android and iOS.</p>
     </div>
 }
 
