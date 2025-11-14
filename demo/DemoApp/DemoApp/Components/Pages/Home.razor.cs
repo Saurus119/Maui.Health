@@ -19,9 +19,13 @@ public partial class Home
     private WorkoutDto[] _workouts { get; set; } = [];
     private string _demoDataMessage { get; set; } = string.Empty;
     private bool _demoDataSuccess { get; set; } = false;
+    private bool _isAndroid { get; set; } = false;
 
     protected override async Task OnInitializedAsync()
     {
+        // Check if running on Android
+        _isAndroid = DeviceInfo.Platform == DevicePlatform.Android;
+
         // Request all permissions upfront in a single dialog
         var permissions = new List<HealthPermissionDto>
         {
