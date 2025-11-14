@@ -1247,26 +1247,39 @@ public partial class HealthService
 
     private WeightRecord CreateWeightRecord(WeightDto dto)
     {
-        var time = Instant.OfEpochMilli(dto.Timestamp.ToUnixTimeMilliseconds())!;
-
-        // Use Mass.FromKilograms static factory method
-        var massClass = Java.Lang.Class.FromType(typeof(Mass));
-        var fromKilogramsMethod = massClass.GetMethod("fromKilograms", Java.Lang.Class.FromType(typeof(double)));
-        var mass = fromKilogramsMethod!.Invoke(null, dto.Value)!;
-
         try
         {
-            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.WeightRecord$Builder");
-            var constructor = builderClass!.GetConstructor(
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("androidx.health.connect.client.units.Mass")
+            // Convert DateTime to Instant using Parse method
+            var time = Instant.Parse(dto.Timestamp.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+
+            // Create metadata
+            var metadata = new Metadata();
+            if (metadata == null)
+            {
+                throw new InvalidOperationException("Metadata not created");
+            }
+            var offset = ZoneOffset.SystemDefault().Rules.GetOffset(Instant.Now());
+
+            // Create Mass from kilograms using Companion factory method via reflection
+            var massClass = Java.Lang.Class.ForName("androidx.health.connect.client.units.Mass");
+            var companionField = massClass!.GetDeclaredField("Companion");
+            companionField!.Accessible = true;
+            var companion = companionField.Get(null);
+
+            var kilogramsMethod = companion!.Class.GetDeclaredMethod("kilograms", Java.Lang.Double.Type);
+            kilogramsMethod!.Accessible = true;
+            var massObj = kilogramsMethod.Invoke(companion, dto.Value);
+            var mass = Java.Lang.Object.GetObject<Mass>(massObj!.Handle, Android.Runtime.JniHandleOwnership.DoNotTransfer);
+
+            // Create WeightRecord using constructor
+            var record = new WeightRecord(
+                time,                    // Instant
+                offset,                  // ZoneOffset?
+                mass!,                   // Mass
+                metadata                 // Metadata (last parameter!)
             );
-            var builder = constructor!.NewInstance(time, mass);
 
-            var buildMethod = builderClass.GetMethod("build");
-            var record = buildMethod!.Invoke(builder);
-
-            return (WeightRecord)record!;
+            return record;
         }
         catch (Exception ex)
         {
@@ -1277,26 +1290,39 @@ public partial class HealthService
 
     private HeightRecord CreateHeightRecord(HeightDto dto)
     {
-        var time = Instant.OfEpochMilli(dto.Timestamp.ToUnixTimeMilliseconds())!;
-
-        // Use Length.FromMeters static factory method
-        var lengthClass = Java.Lang.Class.FromType(typeof(Length));
-        var fromMetersMethod = lengthClass.GetMethod("fromMeters", Java.Lang.Class.FromType(typeof(double)));
-        var length = fromMetersMethod!.Invoke(null, dto.Value / 100.0)!; // Convert cm to meters
-
         try
         {
-            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.HeightRecord$Builder");
-            var constructor = builderClass!.GetConstructor(
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("androidx.health.connect.client.units.Length")
+            // Convert DateTime to Instant using Parse method
+            var time = Instant.Parse(dto.Timestamp.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+
+            // Create metadata
+            var metadata = new Metadata();
+            if (metadata == null)
+            {
+                throw new InvalidOperationException("Metadata not created");
+            }
+            var offset = ZoneOffset.SystemDefault().Rules.GetOffset(Instant.Now());
+
+            // Create Length from meters using Companion factory method via reflection
+            var lengthClass = Java.Lang.Class.ForName("androidx.health.connect.client.units.Length");
+            var companionField = lengthClass!.GetDeclaredField("Companion");
+            companionField!.Accessible = true;
+            var companion = companionField.Get(null);
+
+            var metersMethod = companion!.Class.GetDeclaredMethod("meters", Java.Lang.Double.Type);
+            metersMethod!.Accessible = true;
+            var lengthObj = metersMethod.Invoke(companion, dto.Value / 100.0); // Convert cm to meters
+            var length = Java.Lang.Object.GetObject<Length>(lengthObj!.Handle, Android.Runtime.JniHandleOwnership.DoNotTransfer);
+
+            // Create HeightRecord using constructor
+            var record = new HeightRecord(
+                time,                    // Instant
+                offset,                  // ZoneOffset?
+                length!,                 // Length
+                metadata                 // Metadata (last parameter!)
             );
-            var builder = constructor!.NewInstance(time, length);
 
-            var buildMethod = builderClass.GetMethod("build");
-            var record = buildMethod!.Invoke(builder);
-
-            return (HeightRecord)record!;
+            return record;
         }
         catch (Exception ex)
         {
@@ -1307,28 +1333,42 @@ public partial class HealthService
 
     private ActiveCaloriesBurnedRecord CreateActiveCaloriesBurnedRecord(ActiveCaloriesBurnedDto dto)
     {
-        var startTime = Instant.OfEpochMilli(dto.StartTime.ToUnixTimeMilliseconds())!;
-        var endTime = Instant.OfEpochMilli(dto.EndTime.ToUnixTimeMilliseconds())!;
-
-        // Use Energy.FromKilocalories static factory method
-        var energyClass = Java.Lang.Class.FromType(typeof(Energy));
-        var fromKilocaloriesMethod = energyClass.GetMethod("fromKilocalories", Java.Lang.Class.FromType(typeof(double)));
-        var energy = fromKilocaloriesMethod!.Invoke(null, dto.Energy)!;
-
         try
         {
-            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.ActiveCaloriesBurnedRecord$Builder");
-            var constructor = builderClass!.GetConstructor(
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("androidx.health.connect.client.units.Energy")
+            // Convert DateTime to Instant using Parse method
+            var startTime = Instant.Parse(dto.StartTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+            var endTime = Instant.Parse(dto.EndTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+
+            // Create metadata
+            var metadata = new Metadata();
+            if (metadata == null)
+            {
+                throw new InvalidOperationException("Metadata not created");
+            }
+            var offset = ZoneOffset.SystemDefault().Rules.GetOffset(Instant.Now());
+
+            // Create Energy from kilocalories using Companion factory method via reflection
+            var energyClass = Java.Lang.Class.ForName("androidx.health.connect.client.units.Energy");
+            var companionField = energyClass!.GetDeclaredField("Companion");
+            companionField!.Accessible = true;
+            var companion = companionField.Get(null);
+
+            var kilocaloriesMethod = companion!.Class.GetDeclaredMethod("kilocalories", Java.Lang.Double.Type);
+            kilocaloriesMethod!.Accessible = true;
+            var energyObj = kilocaloriesMethod.Invoke(companion, dto.Energy);
+            var energy = Java.Lang.Object.GetObject<Energy>(energyObj!.Handle, Android.Runtime.JniHandleOwnership.DoNotTransfer);
+
+            // Create ActiveCaloriesBurnedRecord using constructor
+            var record = new ActiveCaloriesBurnedRecord(
+                startTime,               // Instant
+                offset,                  // ZoneOffset?
+                endTime,                 // Instant
+                offset,                  // ZoneOffset?
+                energy!,                 // Energy
+                metadata                 // Metadata (last parameter!)
             );
-            var builder = constructor!.NewInstance(startTime, endTime, energy);
 
-            var buildMethod = builderClass.GetMethod("build");
-            var record = buildMethod!.Invoke(builder);
-
-            return (ActiveCaloriesBurnedRecord)record!;
+            return record;
         }
         catch (Exception ex)
         {
@@ -1339,37 +1379,36 @@ public partial class HealthService
 
     private HeartRateRecord CreateHeartRateRecord(HeartRateDto dto)
     {
-        var time = Instant.OfEpochMilli(dto.Timestamp.ToUnixTimeMilliseconds())!;
-
         try
         {
-            // Create sample list
-            var sampleClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.HeartRateRecord$Sample");
-            var sampleConstructor = sampleClass!.GetConstructor(
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Long.Type
+            // Convert DateTime to Instant using Parse method
+            var time = Instant.Parse(dto.Timestamp.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+
+            // Create metadata
+            var metadata = new Metadata();
+            if (metadata == null)
+            {
+                throw new InvalidOperationException("Metadata not created");
+            }
+            var offset = ZoneOffset.SystemDefault().Rules.GetOffset(Instant.Now());
+
+            // Create sample using HeartRateRecord.Sample constructor
+            var sample = new HeartRateRecord.Sample(time, (long)dto.BeatsPerMinute);
+
+            // Create sample list using proper generic list
+            var samplesList = new List<HeartRateRecord.Sample> { sample };
+
+            // Create HeartRateRecord using constructor
+            var record = new HeartRateRecord(
+                time,                    // Instant (start time)
+                offset,                  // ZoneOffset?
+                time,                    // Instant (end time - same as start for single sample)
+                offset,                  // ZoneOffset?
+                samplesList,             // IList<Sample>
+                metadata                 // Metadata (last parameter!)
             );
-            var sample = sampleConstructor!.NewInstance(time, new Java.Lang.Long((long)dto.BeatsPerMinute));
 
-            var listClass = Java.Lang.Class.ForName("java.util.ArrayList");
-            var listConstructor = listClass!.GetConstructor();
-            var sampleList = listConstructor!.NewInstance();
-            var addMethod = listClass.GetMethod("add", Java.Lang.Class.FromType(typeof(Java.Lang.Object)));
-            addMethod!.Invoke(sampleList, sample);
-
-            // Create HeartRateRecord using builder
-            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.HeartRateRecord$Builder");
-            var constructor = builderClass!.GetConstructor(
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("java.util.List")
-            );
-            var builder = constructor!.NewInstance(time, time, sampleList);
-
-            var buildMethod = builderClass.GetMethod("build");
-            var record = buildMethod!.Invoke(builder);
-
-            return (HeartRateRecord)record!;
+            return record;
         }
         catch (Exception ex)
         {

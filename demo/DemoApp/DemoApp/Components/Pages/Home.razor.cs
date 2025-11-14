@@ -55,11 +55,11 @@ public partial class Home
             // Request write permissions
             var writePermissions = new List<HealthPermissionDto>
             {
-                new() { HealthDataType = HealthDataType.Steps, PermissionType = PermissionType.Write }
-                // Commented out for testing - testing Steps only first
-                // new() { HealthDataType = HealthDataType.Weight, PermissionType = PermissionType.Write },
-                // new() { HealthDataType = HealthDataType.ActiveCaloriesBurned, PermissionType = PermissionType.Write },
-                // new() { HealthDataType = HealthDataType.HeartRate, PermissionType = PermissionType.Write },
+                new() { HealthDataType = HealthDataType.Steps, PermissionType = PermissionType.Write },
+                new() { HealthDataType = HealthDataType.Weight, PermissionType = PermissionType.Write },
+                new() { HealthDataType = HealthDataType.ActiveCaloriesBurned, PermissionType = PermissionType.Write },
+                new() { HealthDataType = HealthDataType.HeartRate, PermissionType = PermissionType.Write }
+                // Exercise sessions not included yet
                 // new() { HealthDataType = HealthDataType.ExerciseSession, PermissionType = PermissionType.Write }
             };
 
@@ -88,47 +88,45 @@ public partial class Home
                 await _healthService.WriteHealthDataAsync(step);
             }
 
-            // Commented out for testing - testing Steps only first
-            // // Write Weight data
-            // var weightData = new WeightDto
-            // {
-            //     Id = "",
-            //     DataOrigin = "DemoApp",
-            //     Value = 75.5,
-            //     Timestamp = today.AddHours(7),
-            //     Unit = "kg"
-            // };
-            // await _healthService.WriteHealthDataAsync(weightData);
-            //
-            // // Write Active Calories Burned data (multiple sessions)
-            // var caloriesData = new[]
-            // {
-            //     new ActiveCaloriesBurnedDto { Id = "", DataOrigin = "DemoApp", Energy = 120, StartTime = today.AddHours(8), EndTime = today.AddHours(9), Timestamp = today.AddHours(8), Unit = "kcal" },
-            //     new ActiveCaloriesBurnedDto { Id = "", DataOrigin = "DemoApp", Energy = 280, StartTime = today.AddHours(14), EndTime = today.AddHours(15), Timestamp = today.AddHours(14), Unit = "kcal" },
-            //     new ActiveCaloriesBurnedDto { Id = "", DataOrigin = "DemoApp", Energy = 150, StartTime = today.AddHours(16), EndTime = today.AddHours(17), Timestamp = today.AddHours(16), Unit = "kcal" }
-            // };
-            //
-            // foreach (var calories in caloriesData)
-            // {
-            //     await _healthService.WriteHealthDataAsync(calories);
-            // }
+            // Write Weight data
+            var weightData = new WeightDto
+            {
+                Id = "",
+                DataOrigin = "DemoApp",
+                Value = 75.5,
+                Timestamp = today.AddHours(7),
+                Unit = "kg"
+            };
+            await _healthService.WriteHealthDataAsync(weightData);
 
-            // Commented out for testing - HeartRate Builder not working via reflection
-            // // Write Heart Rate data during exercise time (14:00-17:00)
-            // var heartRateData = new[]
-            // {
-            //     new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 125, Timestamp = today.AddHours(14).AddMinutes(5), Unit = "BPM" },
-            //     new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 138, Timestamp = today.AddHours(14).AddMinutes(15), Unit = "BPM" },
-            //     new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 145, Timestamp = today.AddHours(14).AddMinutes(25), Unit = "BPM" },
-            //     new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 142, Timestamp = today.AddHours(14).AddMinutes(35), Unit = "BPM" },
-            //     new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 135, Timestamp = today.AddHours(14).AddMinutes(45), Unit = "BPM" },
-            //     new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 128, Timestamp = today.AddHours(14).AddMinutes(55), Unit = "BPM" }
-            // };
-            //
-            // foreach (var heartRate in heartRateData)
-            // {
-            //     await _healthService.WriteHealthDataAsync(heartRate);
-            // }
+            // Write Active Calories Burned data (multiple sessions)
+            var caloriesData = new[]
+            {
+                new ActiveCaloriesBurnedDto { Id = "", DataOrigin = "DemoApp", Energy = 120, StartTime = today.AddHours(8), EndTime = today.AddHours(9), Timestamp = today.AddHours(8), Unit = "kcal" },
+                new ActiveCaloriesBurnedDto { Id = "", DataOrigin = "DemoApp", Energy = 280, StartTime = today.AddHours(14), EndTime = today.AddHours(15), Timestamp = today.AddHours(14), Unit = "kcal" },
+                new ActiveCaloriesBurnedDto { Id = "", DataOrigin = "DemoApp", Energy = 150, StartTime = today.AddHours(16), EndTime = today.AddHours(17), Timestamp = today.AddHours(16), Unit = "kcal" }
+            };
+
+            foreach (var calories in caloriesData)
+            {
+                await _healthService.WriteHealthDataAsync(calories);
+            }
+
+            // Write Heart Rate data during exercise time (14:00-17:00)
+            var heartRateData = new[]
+            {
+                new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 125, Timestamp = today.AddHours(14).AddMinutes(5), Unit = "BPM" },
+                new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 138, Timestamp = today.AddHours(14).AddMinutes(15), Unit = "BPM" },
+                new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 145, Timestamp = today.AddHours(14).AddMinutes(25), Unit = "BPM" },
+                new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 142, Timestamp = today.AddHours(14).AddMinutes(35), Unit = "BPM" },
+                new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 135, Timestamp = today.AddHours(14).AddMinutes(45), Unit = "BPM" },
+                new HeartRateDto { Id = "", DataOrigin = "DemoApp", BeatsPerMinute = 128, Timestamp = today.AddHours(14).AddMinutes(55), Unit = "BPM" }
+            };
+
+            foreach (var heartRate in heartRateData)
+            {
+                await _healthService.WriteHealthDataAsync(heartRate);
+            }
 
             // Commented out for testing - Exercise sessions not working yet
             // // Write Workout data
