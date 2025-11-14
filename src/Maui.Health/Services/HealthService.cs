@@ -1,4 +1,5 @@
-﻿using Maui.Health.Models;
+﻿using Maui.Health.Enums;
+using Maui.Health.Models;
 using Maui.Health.Models.Metrics;
 
 namespace Maui.Health.Services;
@@ -19,4 +20,10 @@ public partial class HealthService : IHealthService
 
     public partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken = default)
         where TDto : HealthMetricBase;
+
+    public partial Task<bool> StartWorkoutSessionAsync(ActivityType activityType, CancellationToken cancellationToken = default);
+
+    public partial Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken = default);
+
+    public partial bool IsWorkoutSessionActive();
 }

@@ -23,6 +23,9 @@ public partial class Home
     private bool _isIOS { get; set; } = false;
     private string _iosStrengthTrainingMessage { get; set; } = string.Empty;
     private bool _iosStrengthTrainingSuccess { get; set; } = false;
+    private bool _isWorkoutSessionActive { get; set; } = false;
+    private string _workoutSessionMessage { get; set; } = string.Empty;
+    private bool _workoutSessionSuccess { get; set; } = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -272,6 +275,79 @@ public partial class Home
         {
             _iosStrengthTrainingMessage = $"Error: {ex.Message}";
             _iosStrengthTrainingSuccess = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task StartWorkoutSession()
+    {
+        try
+        {
+            _workoutSessionMessage = "Starting workout session...";
+            _workoutSessionSuccess = false;
+            StateHasChanged();
+
+            var result = await _healthService.StartWorkoutSessionAsync(ActivityType.TraditionalStrengthTraining);
+
+            if (result)
+            {
+                _isWorkoutSessionActive = true;
+                _workoutSessionMessage = "Workout session started! The workout is now tracking in Apple Health.";
+                _workoutSessionSuccess = true;
+            }
+            else
+            {
+                _workoutSessionMessage = "Failed to start workout session. Check permissions.";
+                _workoutSessionSuccess = false;
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _workoutSessionMessage = $"Error: {ex.Message}";
+            _workoutSessionSuccess = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EndWorkoutSession()
+    {
+        try
+        {
+            _workoutSessionMessage = "Ending workout session...";
+            _workoutSessionSuccess = false;
+            StateHasChanged();
+
+            var workout = await _healthService.EndWorkoutSessionAsync();
+
+            if (workout != null)
+            {
+                _isWorkoutSessionActive = false;
+                _workoutSessionMessage = $"Workout session ended! Duration: {(int)(workout.EndTime - workout.StartTime).TotalMinutes} minutes. Refreshing...";
+                _workoutSessionSuccess = true;
+                StateHasChanged();
+
+                // Wait a moment and reload data
+                await Task.Delay(500);
+                await LoadHealthDataAsync();
+
+                _workoutSessionMessage = $"Workout saved successfully! Duration: {(int)(workout.EndTime - workout.StartTime).TotalMinutes} minutes.";
+            }
+            else
+            {
+                _isWorkoutSessionActive = false;
+                _workoutSessionMessage = "Failed to end workout session.";
+                _workoutSessionSuccess = false;
+            }
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _workoutSessionMessage = $"Error: {ex.Message}";
+            _workoutSessionSuccess = false;
+            _isWorkoutSessionActive = false;
             StateHasChanged();
         }
     }

@@ -1,4 +1,5 @@
-﻿using Maui.Health.Models;
+﻿using Maui.Health.Enums;
+using Maui.Health.Models;
 using Maui.Health.Models.Metrics;
 
 namespace Maui.Health.Services;
@@ -23,5 +24,20 @@ public partial class HealthService
     {
         // MacCatalyst platform does not support health data writing (use iOS implementation instead)
         return Task.FromResult(false);
+    }
+
+    public partial Task<bool> StartWorkoutSessionAsync(ActivityType activityType, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(false);
+    }
+
+    public partial Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult<WorkoutDto?>(null);
+    }
+
+    public partial bool IsWorkoutSessionActive()
+    {
+        return false;
     }
 }

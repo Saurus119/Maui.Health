@@ -11,6 +11,11 @@ namespace Maui.Health.Services;
 
 public partial class HealthService
 {
+    // Workout session tracking
+    private DateTime? _workoutStartTime;
+    private ActivityType? _workoutActivityType;
+    private readonly object _sessionLock = new object();
+
     public partial bool IsSupported => HKHealthStore.IsHealthDataAvailable;
 
     public async partial Task<TDto[]> GetHealthDataAsync<TDto>(HealthTimeRange timeRange, CancellationToken cancellationToken)
@@ -730,5 +735,102 @@ public partial class HealthService
             ActivityType.Other => HKWorkoutActivityType.Other,
             _ => HKWorkoutActivityType.Other
         };
+    }
+
+    public partial Task<bool> StartWorkoutSessionAsync(ActivityType activityType, CancellationToken cancellationToken)
+    {
+        if (!IsSupported)
+        {
+            return Task.FromResult(false);
+        }
+
+        lock (_sessionLock)
+        {
+            if (_workoutStartTime.HasValue)
+            {
+                System.Diagnostics.Debug.WriteLine("iOS: Workout session already active");
+                return Task.FromResult(false);
+            }
+
+            _workoutStartTime = DateTime.Now;
+            _workoutActivityType = activityType;
+            System.Diagnostics.Debug.WriteLine($"iOS: Workout session started for {activityType} at {_workoutStartTime}");
+            return Task.FromResult(true);
+        }
+    }
+
+    public async partial Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken)
+    {
+        DateTime startTime;
+        ActivityType activityType;
+
+        lock (_sessionLock)
+        {
+            if (!_workoutStartTime.HasValue || !_workoutActivityType.HasValue)
+            {
+                System.Diagnostics.Debug.WriteLine("iOS: No active workout session to end");
+                return null;
+            }
+
+            startTime = _workoutStartTime.Value;
+            activityType = _workoutActivityType.Value;
+        }
+
+        try
+        {
+            var endTime = DateTime.Now;
+            System.Diagnostics.Debug.WriteLine($"iOS: Ending workout session - Duration: {(endTime - startTime).TotalMinutes:F1} minutes");
+
+            // Create workout DTO
+            var workoutDto = new WorkoutDto
+            {
+                Id = "",
+                DataOrigin = "DemoApp",
+                ActivityType = activityType,
+                Title = activityType.ToString(),
+                StartTime = startTime,
+                EndTime = endTime,
+                Timestamp = startTime
+            };
+
+            // Write the workout to HealthKit
+            var success = await WriteHealthDataAsync(workoutDto, cancellationToken);
+
+            if (success)
+            {
+                System.Diagnostics.Debug.WriteLine("iOS: Workout session ended and saved successfully");
+                CleanupSession();
+                return workoutDto;
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("iOS: Failed to save workout");
+                CleanupSession();
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"iOS: Exception ending workout session: {ex.Message}");
+            CleanupSession();
+            return null;
+        }
+    }
+
+    public partial bool IsWorkoutSessionActive()
+    {
+        lock (_sessionLock)
+        {
+            return _workoutStartTime.HasValue;
+        }
+    }
+
+    private void CleanupSession()
+    {
+        lock (_sessionLock)
+        {
+            _workoutStartTime = null;
+            _workoutActivityType = null;
+        }
     }
 }

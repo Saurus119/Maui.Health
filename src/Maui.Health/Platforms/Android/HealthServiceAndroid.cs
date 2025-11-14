@@ -1501,6 +1501,24 @@ public partial class HealthService
             _ => 0
         };
     }
+
+    // TODO: Implement Android workout session using ExerciseClient API
+    public partial Task<bool> StartWorkoutSessionAsync(ActivityType activityType, CancellationToken cancellationToken)
+    {
+        // Android implementation would use Health Services ExerciseClient API
+        // This requires the Health Services library and is more complex
+        return Task.FromResult(false);
+    }
+
+    public partial Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult<WorkoutDto?>(null);
+    }
+
+    public partial bool IsWorkoutSessionActive()
+    {
+        return false;
+    }
 }
 
 //public async partial Task<ReadRecordResult> ReadRecords(HealthDataType healthDataType, DateTime from, DateTime until, CancellationToken cancellationToken)

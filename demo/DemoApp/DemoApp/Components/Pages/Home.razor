@@ -17,8 +17,30 @@
 @if (_isIOS)
 {
     <div style="margin-bottom: 20px;">
-        <button @onclick="CreateIOSStrengthTraining" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Create Strength Training (iOS)
+        <h3>Live Workout Session</h3>
+        @if (!_isWorkoutSessionActive)
+        {
+            <button @onclick="StartWorkoutSession" style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                Start Strength Training Session
+            </button>
+        }
+        else
+        {
+            <button @onclick="EndWorkoutSession" style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
+                End Workout Session
+            </button>
+            <span style="color: #28a745; font-weight: bold;">● Session Active</span>
+        }
+        @if (!string.IsNullOrEmpty(_workoutSessionMessage))
+        {
+            <p style="color: @(_workoutSessionSuccess ? "green" : "red"); margin-top: 10px;">@_workoutSessionMessage</p>
+        }
+    </div>
+
+    <div style="margin-bottom: 20px;">
+        <h3>Quick Demo Workout (Historical)</h3>
+        <button @onclick="CreateIOSStrengthTraining" style="padding: 10px 20px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Create Past Strength Training
         </button>
         @if (!string.IsNullOrEmpty(_iosStrengthTrainingMessage))
         {
