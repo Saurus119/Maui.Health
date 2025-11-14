@@ -1419,31 +1419,36 @@ public partial class HealthService
 
     private ExerciseSessionRecord CreateExerciseSessionRecord(WorkoutDto dto)
     {
-        var startTime = Instant.OfEpochMilli(dto.StartTime.ToUnixTimeMilliseconds())!;
-        var endTime = Instant.OfEpochMilli(dto.EndTime.ToUnixTimeMilliseconds())!;
-        var exerciseType = MapActivityTypeToAndroid(dto.ActivityType);
-
         try
         {
-            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.ExerciseSessionRecord$Builder");
-            var constructor = builderClass!.GetConstructor(
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Class.ForName("java.time.Instant"),
-                Java.Lang.Integer.Type
-            );
-            var builder = constructor!.NewInstance(startTime, endTime, new Java.Lang.Integer(exerciseType));
+            // Convert DateTime to Instant using Parse method
+            var startTime = Instant.Parse(dto.StartTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+            var endTime = Instant.Parse(dto.EndTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
 
-            // Set optional title if provided
-            if (!string.IsNullOrEmpty(dto.Title))
+            // Create metadata
+            var metadata = new Metadata();
+            if (metadata == null)
             {
-                var setTitleMethod = builderClass.GetMethod("setTitle", Java.Lang.Class.FromType(typeof(Java.Lang.ICharSequence)));
-                setTitleMethod?.Invoke(builder, new Java.Lang.String(dto.Title));
+                throw new InvalidOperationException("Metadata not created");
             }
+            var offset = ZoneOffset.SystemDefault().Rules.GetOffset(Instant.Now());
 
-            var buildMethod = builderClass.GetMethod("build");
-            var record = buildMethod!.Invoke(builder);
+            // Map activity type to Android exercise type
+            var exerciseType = MapActivityTypeToAndroid(dto.ActivityType);
 
-            return (ExerciseSessionRecord)record!;
+            // Create ExerciseSessionRecord using constructor
+            var record = new ExerciseSessionRecord(
+                startTime,                           // Instant (start time)
+                offset,                              // ZoneOffset?
+                endTime,                             // Instant (end time)
+                offset,                              // ZoneOffset?
+                exerciseType,                        // int (exercise type)
+                !string.IsNullOrEmpty(dto.Title) ? dto.Title : null,  // CharSequence? (title - optional)
+                null,                                // CharSequence? (notes - optional)
+                metadata                             // Metadata (last parameter!)
+            );
+
+            return record;
         }
         catch (Exception ex)
         {

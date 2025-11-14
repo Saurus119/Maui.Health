@@ -58,9 +58,8 @@ public partial class Home
                 new() { HealthDataType = HealthDataType.Steps, PermissionType = PermissionType.Write },
                 new() { HealthDataType = HealthDataType.Weight, PermissionType = PermissionType.Write },
                 new() { HealthDataType = HealthDataType.ActiveCaloriesBurned, PermissionType = PermissionType.Write },
-                new() { HealthDataType = HealthDataType.HeartRate, PermissionType = PermissionType.Write }
-                // Exercise sessions not included yet
-                // new() { HealthDataType = HealthDataType.ExerciseSession, PermissionType = PermissionType.Write }
+                new() { HealthDataType = HealthDataType.HeartRate, PermissionType = PermissionType.Write },
+                new() { HealthDataType = HealthDataType.ExerciseSession, PermissionType = PermissionType.Write }
             };
 
             var permissionResult = await _healthService.RequestPermissions(writePermissions);
@@ -128,19 +127,18 @@ public partial class Home
                 await _healthService.WriteHealthDataAsync(heartRate);
             }
 
-            // Commented out for testing - Exercise sessions not working yet
-            // // Write Workout data
-            // var workoutData = new WorkoutDto
-            // {
-            //     Id = "",
-            //     DataOrigin = "DemoApp",
-            //     ActivityType = ActivityType.Running,
-            //     Title = "Morning Run",
-            //     StartTime = today.AddHours(14),
-            //     EndTime = today.AddHours(15),
-            //     Timestamp = today.AddHours(14)
-            // };
-            // await _healthService.WriteHealthDataAsync(workoutData);
+            // Write Workout data - Strength Training Session
+            var workoutData = new WorkoutDto
+            {
+                Id = "",
+                DataOrigin = "DemoApp",
+                ActivityType = ActivityType.TraditionalStrengthTraining,
+                Title = "Strength Training",
+                StartTime = today.AddHours(9),
+                EndTime = today.AddHours(10),
+                Timestamp = today.AddHours(9)
+            };
+            await _healthService.WriteHealthDataAsync(workoutData);
 
             _demoDataMessage = "Demo data written successfully! Refreshing...";
             _demoDataSuccess = true;
