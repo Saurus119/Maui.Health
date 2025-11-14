@@ -4,7 +4,8 @@
       "Bash(cat:*)",
       "Bash(dotnet build:*)",
       "Bash(where:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:stackoverflow.com)"
     ],
     "deny": [],
     "ask": []

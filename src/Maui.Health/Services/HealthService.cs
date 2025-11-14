@@ -16,4 +16,7 @@ public partial class HealthService : IHealthService
 
     public partial Task<TDto[]> GetHealthDataAsync<TDto>(HealthTimeRange timeRange, CancellationToken cancellationToken = default)
         where TDto : HealthMetricBase;
+
+    public partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken = default)
+        where TDto : HealthMetricBase;
 }

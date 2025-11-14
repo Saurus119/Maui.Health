@@ -1,31 +1,36 @@
 ﻿using Android.Content;
-using AndroidX.Health.Connect.Client;
-using AndroidX.Health.Connect.Client.Request;
-using AndroidX.Health.Connect.Client.Time;
-using AndroidX.Health.Connect.Client.Units;
-using Kotlin.Jvm;
-using Java.Time;
 using AndroidX.Activity;
 using AndroidX.Activity.Result;
-using Java.Util;
-using Maui.Health.Platforms.Android.Extensions;
+using AndroidX.Health.Connect.Client;
+using AndroidX.Health.Connect.Client.Request;
 using AndroidX.Health.Connect.Client.Response;
-using System.Diagnostics;
-using Maui.Health.Platforms.Android.Callbacks;
-using Maui.Health.Models;
-using Maui.Health.Enums.Errors;
+using AndroidX.Health.Connect.Client.Time;
+using AndroidX.Health.Connect.Client.Units;
+using Java.Time;
+using Java.Util;
+using Kotlin.Jvm;
 using Maui.Health.Enums;
-using Maui.Health.Models.Metrics;
+using Maui.Health.Enums.Errors;
 using Maui.Health.Extensions;
-using StepsRecord = AndroidX.Health.Connect.Client.Records.StepsRecord;
-using WeightRecord = AndroidX.Health.Connect.Client.Records.WeightRecord;
-using HeightRecord = AndroidX.Health.Connect.Client.Records.HeightRecord;
+using Maui.Health.Models;
+using Maui.Health.Models.Metrics;
+using Maui.Health.Platforms.Android.Callbacks;
+using Maui.Health.Platforms.Android.Extensions;
+using System.Diagnostics;
+using Xamarin.Google.Crypto.Tink.Prf;
+using AndroidX.Health.Connect.Client.Records.Metadata;
 using ActiveCaloriesBurnedRecord = AndroidX.Health.Connect.Client.Records.ActiveCaloriesBurnedRecord;
-using HeartRateRecord = AndroidX.Health.Connect.Client.Records.HeartRateRecord;
-using ExerciseSessionRecord = AndroidX.Health.Connect.Client.Records.ExerciseSessionRecord;
-using BodyFatRecord = AndroidX.Health.Connect.Client.Records.BodyFatRecord;
-using Vo2MaxRecord = AndroidX.Health.Connect.Client.Records.Vo2MaxRecord;
 using BloodPressureRecord = AndroidX.Health.Connect.Client.Records.BloodPressureRecord;
+using BodyFatRecord = AndroidX.Health.Connect.Client.Records.BodyFatRecord;
+using Energy = AndroidX.Health.Connect.Client.Units.Energy;
+using ExerciseSessionRecord = AndroidX.Health.Connect.Client.Records.ExerciseSessionRecord;
+using HeartRateRecord = AndroidX.Health.Connect.Client.Records.HeartRateRecord;
+using HeightRecord = AndroidX.Health.Connect.Client.Records.HeightRecord;
+using Length = AndroidX.Health.Connect.Client.Units.Length;
+using Mass = AndroidX.Health.Connect.Client.Units.Mass;
+using StepsRecord = AndroidX.Health.Connect.Client.Records.StepsRecord;
+using Vo2MaxRecord = AndroidX.Health.Connect.Client.Records.Vo2MaxRecord;
+using WeightRecord = AndroidX.Health.Connect.Client.Records.WeightRecord;
 
 namespace Maui.Health.Services;
 
@@ -1101,6 +1106,356 @@ public partial class HealthService
                 ErrorException = e
             };
         }
+    }
+
+    public async partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken) where TDto : HealthMetricBase
+    {
+        try
+        {
+            var sdkCheckResult = IsSdkAvailable();
+            if (!sdkCheckResult.IsSuccess)
+            {
+                return false;
+            }
+
+            // Request write permission for the specific metric
+            var readPermission = MetricDtoExtensions.GetRequiredPermission<TDto>();
+            var writePermission = new HealthPermissionDto
+            {
+                HealthDataType = readPermission.HealthDataType,
+                PermissionType = PermissionType.Write
+            };
+            var requestPermissionResult = await RequestPermissions([writePermission], false, cancellationToken);
+            if (requestPermissionResult.IsError)
+            {
+                return false;
+            }
+
+            var record = ConvertDtoToRecord(data);
+            if (record == null)
+            {
+                Debug.WriteLine($"Failed to convert {typeof(TDto).Name} to Android record");
+                return false;
+            }
+
+            // Create a Java ArrayList with the record
+            var recordsList = new Java.Util.ArrayList();
+            recordsList.Add(record);
+
+            // Call InsertRecords - it's a suspend function
+            // Use reflection to get the Java class from the interface implementation
+            var clientType = _healthConnectClient.GetType();
+            var handleField = clientType.GetField("handle", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            if (handleField != null)
+            {
+                var handle = handleField.GetValue(_healthConnectClient);
+                if (handle is IntPtr jniHandle && jniHandle != IntPtr.Zero)
+                {
+                    // Get the Java class
+                    var classHandle = Android.Runtime.JNIEnv.GetObjectClass(jniHandle);
+                    var clientClass = Java.Lang.Object.GetObject<Java.Lang.Class>(classHandle, Android.Runtime.JniHandleOwnership.DoNotTransfer);
+
+                    // Get the client as a Java.Lang.Object for method invocation
+                    var clientObject = Java.Lang.Object.GetObject<Java.Lang.Object>(jniHandle, Android.Runtime.JniHandleOwnership.DoNotTransfer);
+
+                    var insertMethod = clientClass?.GetDeclaredMethod("insertRecords",
+                        Java.Lang.Class.FromType(typeof(Java.Util.IList)),
+                        Java.Lang.Class.FromType(typeof(Kotlin.Coroutines.IContinuation)));
+
+                    if (insertMethod != null && clientObject != null)
+                    {
+                        var taskCompletionSource = new TaskCompletionSource<Java.Lang.Object>();
+                        var continuation = new Continuation(taskCompletionSource, default);
+
+                        insertMethod.Accessible = true;
+                        var result = insertMethod.Invoke(clientObject, recordsList, continuation);
+
+                        if (result is Java.Lang.Enum javaEnum)
+                        {
+                            var currentState = Enum.Parse<CoroutineState>(javaEnum.ToString());
+                            if (currentState == CoroutineState.COROUTINE_SUSPENDED)
+                            {
+                                await taskCompletionSource.Task;
+                            }
+                        }
+
+                        Debug.WriteLine($"Successfully wrote {typeof(TDto).Name} record");
+                        return true;
+                    }
+                }
+            }
+
+            Debug.WriteLine($"Could not find InsertRecords method via reflection");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error writing health data: {ex}");
+            return false;
+        }
+    }
+
+    private Java.Lang.Object? ConvertDtoToRecord(HealthMetricBase dto)
+    {
+        return dto switch
+        {
+            StepsDto stepsDto => CreateStepsRecord(stepsDto),
+            WeightDto weightDto => CreateWeightRecord(weightDto),
+            HeightDto heightDto => CreateHeightRecord(heightDto),
+            ActiveCaloriesBurnedDto caloriesDto => CreateActiveCaloriesBurnedRecord(caloriesDto),
+            HeartRateDto heartRateDto => CreateHeartRateRecord(heartRateDto),
+            WorkoutDto workoutDto => CreateExerciseSessionRecord(workoutDto),
+            _ => null
+        };
+    }
+
+    private StepsRecord CreateStepsRecord(StepsDto dto)
+    {
+        try
+        {
+            // Convert DateTime to Instant using Parse method
+            var startTime = Instant.Parse(dto.StartTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+            var endTime = Instant.Parse(dto.EndTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'"));
+
+            // Create metadata
+            var metadata = new Metadata();
+            if (metadata == null)
+            {
+                throw new InvalidOperationException("Metadata not created");
+            }
+            var offset = ZoneOffset.SystemDefault().Rules.GetOffset(Instant.Now());
+
+            // Create StepsRecord using Builder pattern
+            var record = new StepsRecord(
+                startTime,               // Instant
+                offset,                  // ZoneOffset?
+                endTime,                 // Instant
+                offset,                  // ZoneOffset?
+                dto.Count,               // long steps count
+                metadata                 // Metadata (last parameter!)
+            );
+
+            return record;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating StepsRecord: {ex}");
+            throw;
+        }
+    }
+
+    private WeightRecord CreateWeightRecord(WeightDto dto)
+    {
+        var time = Instant.OfEpochMilli(dto.Timestamp.ToUnixTimeMilliseconds())!;
+
+        // Use Mass.FromKilograms static factory method
+        var massClass = Java.Lang.Class.FromType(typeof(Mass));
+        var fromKilogramsMethod = massClass.GetMethod("fromKilograms", Java.Lang.Class.FromType(typeof(double)));
+        var mass = fromKilogramsMethod!.Invoke(null, dto.Value)!;
+
+        try
+        {
+            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.WeightRecord$Builder");
+            var constructor = builderClass!.GetConstructor(
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("androidx.health.connect.client.units.Mass")
+            );
+            var builder = constructor!.NewInstance(time, mass);
+
+            var buildMethod = builderClass.GetMethod("build");
+            var record = buildMethod!.Invoke(builder);
+
+            return (WeightRecord)record!;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating WeightRecord: {ex}");
+            throw;
+        }
+    }
+
+    private HeightRecord CreateHeightRecord(HeightDto dto)
+    {
+        var time = Instant.OfEpochMilli(dto.Timestamp.ToUnixTimeMilliseconds())!;
+
+        // Use Length.FromMeters static factory method
+        var lengthClass = Java.Lang.Class.FromType(typeof(Length));
+        var fromMetersMethod = lengthClass.GetMethod("fromMeters", Java.Lang.Class.FromType(typeof(double)));
+        var length = fromMetersMethod!.Invoke(null, dto.Value / 100.0)!; // Convert cm to meters
+
+        try
+        {
+            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.HeightRecord$Builder");
+            var constructor = builderClass!.GetConstructor(
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("androidx.health.connect.client.units.Length")
+            );
+            var builder = constructor!.NewInstance(time, length);
+
+            var buildMethod = builderClass.GetMethod("build");
+            var record = buildMethod!.Invoke(builder);
+
+            return (HeightRecord)record!;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating HeightRecord: {ex}");
+            throw;
+        }
+    }
+
+    private ActiveCaloriesBurnedRecord CreateActiveCaloriesBurnedRecord(ActiveCaloriesBurnedDto dto)
+    {
+        var startTime = Instant.OfEpochMilli(dto.StartTime.ToUnixTimeMilliseconds())!;
+        var endTime = Instant.OfEpochMilli(dto.EndTime.ToUnixTimeMilliseconds())!;
+
+        // Use Energy.FromKilocalories static factory method
+        var energyClass = Java.Lang.Class.FromType(typeof(Energy));
+        var fromKilocaloriesMethod = energyClass.GetMethod("fromKilocalories", Java.Lang.Class.FromType(typeof(double)));
+        var energy = fromKilocaloriesMethod!.Invoke(null, dto.Energy)!;
+
+        try
+        {
+            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.ActiveCaloriesBurnedRecord$Builder");
+            var constructor = builderClass!.GetConstructor(
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("androidx.health.connect.client.units.Energy")
+            );
+            var builder = constructor!.NewInstance(startTime, endTime, energy);
+
+            var buildMethod = builderClass.GetMethod("build");
+            var record = buildMethod!.Invoke(builder);
+
+            return (ActiveCaloriesBurnedRecord)record!;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating ActiveCaloriesBurnedRecord: {ex}");
+            throw;
+        }
+    }
+
+    private HeartRateRecord CreateHeartRateRecord(HeartRateDto dto)
+    {
+        var time = Instant.OfEpochMilli(dto.Timestamp.ToUnixTimeMilliseconds())!;
+
+        try
+        {
+            // Create sample list
+            var sampleClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.HeartRateRecord$Sample");
+            var sampleConstructor = sampleClass!.GetConstructor(
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Long.Type
+            );
+            var sample = sampleConstructor!.NewInstance(time, new Java.Lang.Long((long)dto.BeatsPerMinute));
+
+            var listClass = Java.Lang.Class.ForName("java.util.ArrayList");
+            var listConstructor = listClass!.GetConstructor();
+            var sampleList = listConstructor!.NewInstance();
+            var addMethod = listClass.GetMethod("add", Java.Lang.Class.FromType(typeof(Java.Lang.Object)));
+            addMethod!.Invoke(sampleList, sample);
+
+            // Create HeartRateRecord using builder
+            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.HeartRateRecord$Builder");
+            var constructor = builderClass!.GetConstructor(
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("java.util.List")
+            );
+            var builder = constructor!.NewInstance(time, time, sampleList);
+
+            var buildMethod = builderClass.GetMethod("build");
+            var record = buildMethod!.Invoke(builder);
+
+            return (HeartRateRecord)record!;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating HeartRateRecord: {ex}");
+            throw;
+        }
+    }
+
+    private ExerciseSessionRecord CreateExerciseSessionRecord(WorkoutDto dto)
+    {
+        var startTime = Instant.OfEpochMilli(dto.StartTime.ToUnixTimeMilliseconds())!;
+        var endTime = Instant.OfEpochMilli(dto.EndTime.ToUnixTimeMilliseconds())!;
+        var exerciseType = MapActivityTypeToAndroid(dto.ActivityType);
+
+        try
+        {
+            var builderClass = Java.Lang.Class.ForName("androidx.health.connect.client.records.ExerciseSessionRecord$Builder");
+            var constructor = builderClass!.GetConstructor(
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Class.ForName("java.time.Instant"),
+                Java.Lang.Integer.Type
+            );
+            var builder = constructor!.NewInstance(startTime, endTime, new Java.Lang.Integer(exerciseType));
+
+            // Set optional title if provided
+            if (!string.IsNullOrEmpty(dto.Title))
+            {
+                var setTitleMethod = builderClass.GetMethod("setTitle", Java.Lang.Class.FromType(typeof(Java.Lang.ICharSequence)));
+                setTitleMethod?.Invoke(builder, new Java.Lang.String(dto.Title));
+            }
+
+            var buildMethod = builderClass.GetMethod("build");
+            var record = buildMethod!.Invoke(builder);
+
+            return (ExerciseSessionRecord)record!;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error creating ExerciseSessionRecord: {ex}");
+            throw;
+        }
+    }
+
+    private int MapActivityTypeToAndroid(ActivityType activityType)
+    {
+        return activityType switch
+        {
+            ActivityType.Running => 7,
+            ActivityType.Cycling => 8,
+            ActivityType.Walking => 79,
+            ActivityType.Swimming => 68,
+            ActivityType.Hiking => 36,
+            ActivityType.Yoga => 81,
+            ActivityType.FunctionalStrengthTraining => 28,
+            ActivityType.TraditionalStrengthTraining => 71,
+            ActivityType.Elliptical => 25,
+            ActivityType.Rowing => 61,
+            ActivityType.Pilates => 54,
+            ActivityType.Dancing => 19,
+            ActivityType.Soccer => 62,
+            ActivityType.Basketball => 9,
+            ActivityType.Baseball => 5,
+            ActivityType.Tennis => 73,
+            ActivityType.Golf => 32,
+            ActivityType.Badminton => 3,
+            ActivityType.TableTennis => 72,
+            ActivityType.Volleyball => 78,
+            ActivityType.Cricket => 18,
+            ActivityType.Rugby => 63,
+            ActivityType.AmericanFootball => 1,
+            ActivityType.Skiing => 64,
+            ActivityType.Snowboarding => 66,
+            ActivityType.IceSkating => 40,
+            ActivityType.Surfing => 67,
+            ActivityType.Paddling => 53,
+            ActivityType.Sailing => 65,
+            ActivityType.MartialArts => 47,
+            ActivityType.Boxing => 11,
+            ActivityType.Wrestling => 82,
+            ActivityType.Climbing => 59,
+            ActivityType.CrossTraining => 20,
+            ActivityType.StairClimbing => 70,
+            ActivityType.JumpRope => 44,
+            ActivityType.Other => 0,
+            _ => 0
+        };
     }
 }
 

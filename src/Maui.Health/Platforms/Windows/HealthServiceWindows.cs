@@ -17,4 +17,11 @@ public partial class HealthService
     {
         return Task.FromResult(Array.Empty<TDto>());
     }
+
+    public partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken = default)
+        where TDto : HealthMetricBase
+    {
+        // Windows platform does not support health data writing
+        return Task.FromResult(false);
+    }
 }

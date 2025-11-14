@@ -533,4 +533,10 @@ public partial class HealthService
         }
         return new();
     }
+
+    public partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken) where TDto : HealthMetricBase
+    {
+        // TODO: Implement iOS write functionality
+        return Task.FromResult(false);
+    }
 }
