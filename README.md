@@ -138,21 +138,6 @@ public class HealthWriteService
         return await _healthService.WriteHealthDataAsync(stepsDto);
     }
 
-    // Write weight data
-    public async Task<bool> WriteWeightAsync(double weightInKg)
-    {
-        var weightDto = new WeightDto
-        {
-            Id = "",
-            DataOrigin = "MyApp",
-            Timestamp = DateTime.Now,
-            Value = weightInKg,
-            Unit = "kg"
-        };
-
-        return await _healthService.WriteHealthDataAsync(weightDto);
-    }
-
     // Write workout/exercise session
     public async Task<bool> WriteWorkoutAsync(ActivityType activityType, DateTime startTime, DateTime endTime, double? caloriesBurned = null)
     {
@@ -310,7 +295,6 @@ public async Task RequestPermissions()
 **Permission Types:**
 - `PermissionType.Read` - Read health data
 - `PermissionType.Write` - Write health data
-- `PermissionType.Read | PermissionType.Write` - Both read and write access
 
 ## DTO Architecture
 
@@ -384,7 +368,7 @@ Task<RequestPermissionResult> RequestPermissions(IList<HealthPermissionDto> heal
 
 ## What's New
 
-### ✨ Version 2.0 Features
+### ✨ Version 1.0 Features
 
 **Write Support (Both Platforms):**
 - Full write functionality for iOS HealthKit and Android Health Connect
