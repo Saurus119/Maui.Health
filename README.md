@@ -12,33 +12,36 @@ Feel free to contribute ❤️
 
 ## Features
 
-- **Generic API**: Use `GetHealthDataAsync<TDto>()` for type-safe health data retrieval
+- **Read Health Data**: Use `GetHealthDataAsync<TDto>()` for type-safe health data retrieval
+- **Write Health Data**: Use `WriteHealthDataAsync<TDto>()` to write health metrics to the platform store
+- **Live Workout Sessions**: Start and end workout sessions with automatic duration tracking
 - **Unified DTOs**: Platform-agnostic data transfer objects with common properties
 - **Time Range Support**: Duration-based metrics implement `IHealthTimeRange` interface
-- **Cross-Platform**: Works with Android Health Connect and iOS HealthKit
+- **Cross-Platform**: Full read/write support for Android Health Connect and iOS HealthKit
+- **Permission Management**: Granular read/write permission handling
 
 ## Platform Support & Health Data Mapping
 
-| Health Data Type | Android Health Connect | iOS HealthKit | Wrapper Implementation |
-|-----------------|------------------------|---------------|----------------------|
-| **Steps** | ✅ StepsRecord | ✅ StepCount | ✅ [`StepsDto`](src/Maui.Health/Models/Metrics/StepsDto.cs) |
-| **Weight** | ✅ WeightRecord | ✅ BodyMass | ✅ [`WeightDto`](src/Maui.Health/Models/Metrics/WeightDto.cs) |
-| **Height** | ✅ HeightRecord | ✅ Height | ✅ [`HeightDto`](src/Maui.Health/Models/Metrics/HeightDto.cs) |
-| **Heart Rate** | ✅ HeartRateRecord | ✅ HeartRate | ✅ [`HeartRateDto`](src/Maui.Health/Models/Metrics/HeartRateDto.cs) |
-| **Active Calories** | ✅ ActiveCaloriesBurnedRecord | ✅ ActiveEnergyBurned | ✅ [`ActiveCaloriesBurnedDto`](src/Maui.Health/Models/Metrics/ActiveCaloriesBurnedDto.cs) |
-| **Exercise Session** | ✅ ExerciseSessionRecord | ✅ Workout | ✅ [`WorkoutDto`](src/Maui.Health/Models/Metrics/WorkoutDto.cs) |
-| **Blood Glucose** | ✅ BloodGlucoseRecord | ✅ BloodGlucose | ❌ N/A |
-| **Body Temperature** | ✅ BodyTemperatureRecord | ✅ BodyTemperature | ❌ N/A |
-| **Oxygen Saturation** | ✅ OxygenSaturationRecord | ✅ OxygenSaturation | ❌ N/A |
-| **Respiratory Rate** | ✅ RespiratoryRateRecord | ✅ RespiratoryRate | ❌ N/A |
-| **Basal Metabolic Rate** | ✅ BasalMetabolicRateRecord | ✅ BasalEnergyBurned | ❌ N/A |
-| **Body Fat** | ✅ BodyFatRecord | ✅ BodyFatPercentage | 🚧 WIP (commented out) |
-| **Lean Body Mass** | ✅ LeanBodyMassRecord | ✅ LeanBodyMass | ❌ N/A |
-| **Hydration** | ✅ HydrationRecord | ✅ DietaryWater | ❌ N/A |
-| **VO2 Max** | ✅ Vo2MaxRecord | ✅ VO2Max | 🚧 WIP (commented out) |
-| **Resting Heart Rate** | ✅ RestingHeartRateRecord | ✅ RestingHeartRate | ❌ N/A |
-| **Heart Rate Variability** | ✅ HeartRateVariabilityRmssdRecord | ✅ HeartRateVariabilitySdnn | ❌ N/A |
-| **Blood Pressure** | ✅ BloodPressureRecord | ✅ Split into Systolic/Diastolic | 🚧 WIP (commented out) |
+| Health Data Type | Read/Write | Android Health Connect | iOS HealthKit | Wrapper Implementation |
+|-----------------|------------|------------------------|---------------|----------------------|
+| **Steps** | ✅ Read/Write | StepsRecord | StepCount | ✅ [`StepsDto`](src/Maui.Health/Models/Metrics/StepsDto.cs) |
+| **Weight** | ✅ Read/Write | WeightRecord | BodyMass | ✅ [`WeightDto`](src/Maui.Health/Models/Metrics/WeightDto.cs) |
+| **Height** | ✅ Read/Write | HeightRecord | Height | ✅ [`HeightDto`](src/Maui.Health/Models/Metrics/HeightDto.cs) |
+| **Heart Rate** | ✅ Read/Write | HeartRateRecord | HeartRate | ✅ [`HeartRateDto`](src/Maui.Health/Models/Metrics/HeartRateDto.cs) |
+| **Active Calories** | ✅ Read/Write | ActiveCaloriesBurnedRecord | ActiveEnergyBurned | ✅ [`ActiveCaloriesBurnedDto`](src/Maui.Health/Models/Metrics/ActiveCaloriesBurnedDto.cs) |
+| **Exercise Session** | ✅ Read/Write | ExerciseSessionRecord | Workout | ✅ [`WorkoutDto`](src/Maui.Health/Models/Metrics/WorkoutDto.cs) |
+| **Blood Glucose** | 📖 Read-only | BloodGlucoseRecord | BloodGlucose | ❌ N/A |
+| **Body Temperature** | 📖 Read-only | BodyTemperatureRecord | BodyTemperature | ❌ N/A |
+| **Oxygen Saturation** | 📖 Read-only | OxygenSaturationRecord | OxygenSaturation | ❌ N/A |
+| **Respiratory Rate** | 📖 Read-only | RespiratoryRateRecord | RespiratoryRate | ❌ N/A |
+| **Basal Metabolic Rate** | 📖 Read-only | BasalMetabolicRateRecord | BasalEnergyBurned | ❌ N/A |
+| **Body Fat** | 📖 Read-only | BodyFatRecord | BodyFatPercentage | 🚧 WIP (commented out) |
+| **Lean Body Mass** | 📖 Read-only | LeanBodyMassRecord | LeanBodyMass | ❌ N/A |
+| **Hydration** | 📖 Read-only | HydrationRecord | DietaryWater | ❌ N/A |
+| **VO2 Max** | 📖 Read-only | Vo2MaxRecord | VO2Max | 🚧 WIP (commented out) |
+| **Resting Heart Rate** | 📖 Read-only | RestingHeartRateRecord | RestingHeartRate | ❌ N/A |
+| **Heart Rate Variability** | 📖 Read-only | HeartRateVariabilityRmssdRecord | HeartRateVariabilitySdnn | ❌ N/A |
+| **Blood Pressure** | 📖 Read-only | BloodPressureRecord | Split into Systolic/Diastolic | 🚧 WIP (commented out) |
 
 ## Usage
 
@@ -51,18 +54,33 @@ builder.Services.AddHealth();
 ### 2. Platform Setup
 Follow the [platform setup guide](https://github.com/Kebechet/Maui.Health/commit/139e69fade83f9133044910e47ad530f040b8021):
 
-**Android (4 steps):**
-- Google Play console Health permissions
-- Privacy policy requirements  
-- AndroidManifest.xml changes
-- Minimum Android API 26
+**Android:**
+- Google Play console Health permissions declaration
+- Privacy policy requirements (mandatory for Health Connect)
+- AndroidManifest.xml permissions (see below)
+- Minimum Android API 26 (Android 8.0)
 
-**iOS (3 steps):**
-- Provisioning profile with HealthKit
-- Entitlements.plist
-- Info.plist adjustments
+**Required Android Permissions:**
+```xml
+<!-- Health Connect Permissions -->
+<uses-permission android:name="android.permission.health.READ_EXERCISE"/>
+<uses-permission android:name="android.permission.health.WRITE_EXERCISE"/>
+<uses-permission android:name="android.permission.health.READ_STEPS"/>
+<uses-permission android:name="android.permission.health.WRITE_STEPS"/>
+<uses-permission android:name="android.permission.health.READ_WEIGHT"/>
+<uses-permission android:name="android.permission.health.WRITE_WEIGHT"/>
+<!-- Activity Recognition for workout tracking -->
+<uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+```
 
-### 3. Basic Usage
+**iOS:**
+- Provisioning profile with HealthKit capability enabled
+- Entitlements.plist with HealthKit entitlement
+- Info.plist privacy descriptions:
+  - `NSHealthShareUsageDescription` - for reading health data
+  - `NSHealthUpdateUsageDescription` - for writing health data
+
+### 3. Reading Health Data
 
 ```csharp
 public class HealthExampleService
@@ -92,7 +110,132 @@ public class HealthExampleService
 }
 ```
 
-### 4. Working with Time Ranges
+### 4. Writing Health Data
+
+```csharp
+public class HealthWriteService
+{
+    private readonly IHealthService _healthService;
+
+    public HealthWriteService(IHealthService healthService)
+    {
+        _healthService = healthService;
+    }
+
+    // Write steps data
+    public async Task<bool> WriteStepsAsync(int stepCount, DateTime startTime, DateTime endTime)
+    {
+        var stepsDto = new StepsDto
+        {
+            Id = "",
+            DataOrigin = "MyApp",
+            Timestamp = startTime,
+            Count = stepCount,
+            StartTime = startTime,
+            EndTime = endTime
+        };
+
+        return await _healthService.WriteHealthDataAsync(stepsDto);
+    }
+
+    // Write weight data
+    public async Task<bool> WriteWeightAsync(double weightInKg)
+    {
+        var weightDto = new WeightDto
+        {
+            Id = "",
+            DataOrigin = "MyApp",
+            Timestamp = DateTime.Now,
+            Value = weightInKg,
+            Unit = "kg"
+        };
+
+        return await _healthService.WriteHealthDataAsync(weightDto);
+    }
+
+    // Write workout/exercise session
+    public async Task<bool> WriteWorkoutAsync(ActivityType activityType, DateTime startTime, DateTime endTime, double? caloriesBurned = null)
+    {
+        var workoutDto = new WorkoutDto
+        {
+            Id = "",
+            DataOrigin = "MyApp",
+            Timestamp = startTime,
+            ActivityType = activityType,
+            Title = activityType.ToString(),
+            StartTime = startTime,
+            EndTime = endTime,
+            EnergyBurned = caloriesBurned
+        };
+
+        return await _healthService.WriteHealthDataAsync(workoutDto);
+    }
+}
+```
+
+### 5. Live Workout Session Tracking
+
+Track workouts in real-time with automatic duration calculation:
+
+```csharp
+public class WorkoutSessionService
+{
+    private readonly IHealthService _healthService;
+
+    public WorkoutSessionService(IHealthService healthService)
+    {
+        _healthService = healthService;
+    }
+
+    // Start a workout session
+    public async Task<bool> StartWorkoutAsync(ActivityType activityType)
+    {
+        // Request write permission first
+        var permission = new HealthPermissionDto
+        {
+            HealthDataType = HealthDataType.ExerciseSession,
+            PermissionType = PermissionType.Write
+        };
+        await _healthService.RequestPermissions([permission]);
+
+        // Start the session - platform will track start time
+        return await _healthService.StartWorkoutSessionAsync(activityType);
+    }
+
+    // End the workout session and save to health store
+    public async Task<WorkoutDto?> EndWorkoutAsync()
+    {
+        // This will calculate duration and save to the platform health store
+        var completedWorkout = await _healthService.EndWorkoutSessionAsync();
+
+        if (completedWorkout != null)
+        {
+            Console.WriteLine($"Workout completed! Duration: {completedWorkout.Duration.TotalMinutes:F1} minutes");
+            Console.WriteLine($"Activity: {completedWorkout.ActivityType}");
+        }
+
+        return completedWorkout;
+    }
+
+    // Check if a session is currently active
+    public bool IsSessionActive()
+    {
+        return _healthService.IsWorkoutSessionActive();
+    }
+}
+```
+
+**Supported Activity Types:**
+- `TraditionalStrengthTraining`, `FunctionalStrengthTraining`
+- `Running`, `Cycling`, `Walking`, `Swimming`, `Hiking`
+- `Yoga`, `Pilates`, `Elliptical`, `Rowing`
+- `Soccer`, `Basketball`, `Tennis`, `Golf`, and 20+ more
+
+**Platform Behavior:**
+- **iOS**: Workouts are saved to Apple Health and contribute to Activity rings
+- **Android**: Workouts are saved to Google Health Connect and tracked in fitness apps
+
+### 6. Working with Time Ranges
 
 Duration-based metrics implement `IHealthTimeRange`:
 
@@ -139,7 +282,7 @@ public async Task AnalyzeWeightData()
 }
 ```
 
-### 5. Permission Handling
+### 7. Permission Handling
 
 ```csharp
 public async Task RequestPermissions()
@@ -147,12 +290,12 @@ public async Task RequestPermissions()
     var permissions = new List<HealthPermissionDto>
     {
         new() { HealthDataType = HealthDataType.Steps, PermissionType = PermissionType.Read },
-        new() { HealthDataType = HealthDataType.Weight, PermissionType = PermissionType.Read },
-        new() { HealthDataType = HealthDataType.Height, PermissionType = PermissionType.Read }
+        new() { HealthDataType = HealthDataType.Weight, PermissionType = PermissionType.Read | PermissionType.Write },
+        new() { HealthDataType = HealthDataType.ExerciseSession, PermissionType = PermissionType.Write }
     };
 
     var result = await _healthService.RequestPermissions(permissions);
-    
+
     if (result.IsSuccess)
     {
         Console.WriteLine("Permissions granted!");
@@ -163,6 +306,11 @@ public async Task RequestPermissions()
     }
 }
 ```
+
+**Permission Types:**
+- `PermissionType.Read` - Read health data
+- `PermissionType.Write` - Write health data
+- `PermissionType.Read | PermissionType.Write` - Both read and write access
 
 ## DTO Architecture
 
@@ -205,6 +353,62 @@ public interface IHealthTimeRange
 - Blood pressure - instant reading
 - Heart rate - point-in-time measurement
 
+## API Reference
+
+### IHealthService Methods
+
+**Reading Health Data:**
+```csharp
+Task<TDto[]> GetHealthDataAsync<TDto>(HealthTimeRange timeRange, CancellationToken cancellationToken = default)
+    where TDto : HealthMetricBase;
+```
+
+**Writing Health Data:**
+```csharp
+Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken = default)
+    where TDto : HealthMetricBase;
+```
+
+**Workout Session Management:**
+```csharp
+Task<bool> StartWorkoutSessionAsync(ActivityType activityType, CancellationToken cancellationToken = default);
+Task<WorkoutDto?> EndWorkoutSessionAsync(CancellationToken cancellationToken = default);
+bool IsWorkoutSessionActive();
+```
+
+**Permission Management:**
+```csharp
+Task<RequestPermissionResult> RequestPermission(HealthPermissionDto healthPermission, ...);
+Task<RequestPermissionResult> RequestPermissions(IList<HealthPermissionDto> healthPermissions, ...);
+```
+
+## What's New
+
+### ✨ Version 2.0 Features
+
+**Write Support (Both Platforms):**
+- Full write functionality for iOS HealthKit and Android Health Connect
+- Write steps, weight, height, heart rate, calories, and workouts
+- Type-safe write API using the same DTOs as reading
+
+**Live Workout Session Tracking:**
+- Start/end workout sessions with automatic duration tracking
+- No need to manually calculate workout duration
+- Session state management with `IsWorkoutSessionActive()`
+- Works on both iOS and Android
+- Saved workouts appear in native health apps (Apple Health / Health Connect)
+
+**Enhanced Permission System:**
+- Separate read/write permission handling
+- Bitwise permission flags (`PermissionType.Read | PermissionType.Write`)
+- Platform-specific permission prompts
+
+**30+ Activity Types Supported:**
+- Strength training (traditional and functional)
+- Cardio activities (running, cycling, swimming, rowing)
+- Sports (soccer, basketball, tennis, golf, etc.)
+- Other fitness activities (yoga, pilates, hiking, etc.)
+
 ## Testing Tips
 
 **iOS Simulator/Device:**
@@ -212,11 +416,13 @@ public interface IHealthTimeRange
 - Navigate to the desired metric (e.g., Steps)
 - Tap "Add Data" in the top-right corner
 - Manually add test data for development
+- For write operations, ensure "MyApp" appears in Health data sources
 
-**Android Emulator:**
-- Install Google Health Connect app
+**Android Emulator/Device:**
+- Install Google Health Connect app from Play Store
 - Add sample health data for testing
-- Ensure proper permissions are granted
+- Ensure proper permissions are granted in Health Connect
+- For write operations, verify data appears in Health Connect app
 
 ## Credits
 - @aritchie - `https://github.com/shinyorg/Health`
