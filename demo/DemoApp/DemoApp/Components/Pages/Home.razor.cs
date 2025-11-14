@@ -20,11 +20,15 @@ public partial class Home
     private string _demoDataMessage { get; set; } = string.Empty;
     private bool _demoDataSuccess { get; set; } = false;
     private bool _isAndroid { get; set; } = false;
+    private bool _isIOS { get; set; } = false;
+    private string _iosStrengthTrainingMessage { get; set; } = string.Empty;
+    private bool _iosStrengthTrainingSuccess { get; set; } = false;
 
     protected override async Task OnInitializedAsync()
     {
-        // Check if running on Android
+        // Check if running on Android or iOS
         _isAndroid = DeviceInfo.Platform == DevicePlatform.Android;
+        _isIOS = DeviceInfo.Platform == DevicePlatform.iOS;
 
         // Request all permissions upfront in a single dialog
         var permissions = new List<HealthPermissionDto>
@@ -197,5 +201,78 @@ public partial class Home
 
         // Fetch today's workouts
         _workouts = await _healthService.GetHealthDataAsync<WorkoutDto>(todayRange);
+    }
+
+    private async Task CreateIOSStrengthTraining()
+    {
+        try
+        {
+            _iosStrengthTrainingMessage = "Creating strength training workout...";
+            _iosStrengthTrainingSuccess = false;
+            StateHasChanged();
+
+            // Request write permission for workouts
+            var writePermission = new HealthPermissionDto
+            {
+                HealthDataType = HealthDataType.ExerciseSession,
+                PermissionType = PermissionType.Write
+            };
+
+            var permissionResult = await _healthService.RequestPermissions([writePermission]);
+            if (!permissionResult.IsSuccess)
+            {
+                _iosStrengthTrainingMessage = "Failed to get write permission for workouts";
+                StateHasChanged();
+                return;
+            }
+
+            var now = DateTime.Now;
+            var workoutStart = now.AddHours(-1); // 1 hour ago
+            var workoutEnd = now; // Now
+
+            // Create a strength training workout
+            var strengthTrainingWorkout = new WorkoutDto
+            {
+                Id = "",
+                DataOrigin = "DemoApp",
+                ActivityType = ActivityType.TraditionalStrengthTraining,
+                Title = "Strength Training",
+                StartTime = workoutStart,
+                EndTime = workoutEnd,
+                Timestamp = workoutStart,
+                EnergyBurned = 250, // 250 kcal
+                Distance = null // No distance for strength training
+            };
+
+            var result = await _healthService.WriteHealthDataAsync(strengthTrainingWorkout);
+
+            if (result)
+            {
+                _iosStrengthTrainingMessage = "Strength training workout created successfully! Refreshing...";
+                _iosStrengthTrainingSuccess = true;
+                StateHasChanged();
+
+                // Wait a moment for HealthKit to process
+                await Task.Delay(500);
+
+                // Reload the data
+                await LoadHealthDataAsync();
+
+                _iosStrengthTrainingMessage = "Strength training workout created and loaded successfully!";
+                StateHasChanged();
+            }
+            else
+            {
+                _iosStrengthTrainingMessage = "Failed to create strength training workout";
+                _iosStrengthTrainingSuccess = false;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            _iosStrengthTrainingMessage = $"Error: {ex.Message}";
+            _iosStrengthTrainingSuccess = false;
+            StateHasChanged();
+        }
     }
 }

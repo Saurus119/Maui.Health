@@ -534,9 +534,201 @@ public partial class HealthService
         return new();
     }
 
-    public partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken) where TDto : HealthMetricBase
+    public async partial Task<bool> WriteHealthDataAsync<TDto>(TDto data, CancellationToken cancellationToken) where TDto : HealthMetricBase
     {
-        // TODO: Implement iOS write functionality
-        return Task.FromResult(false);
+        if (!IsSupported)
+        {
+            return false;
+        }
+
+        try
+        {
+            System.Diagnostics.Debug.WriteLine($"iOS WriteHealthDataAsync<{typeof(TDto).Name}>");
+
+            // Request write permission for the specific metric
+            var readPermission = MetricDtoExtensions.GetRequiredPermission<TDto>();
+            var writePermission = new HealthPermissionDto
+            {
+                HealthDataType = readPermission.HealthDataType,
+                PermissionType = PermissionType.Write
+            };
+            var permissionResult = await RequestPermissions([writePermission], cancellationToken: cancellationToken);
+            if (!permissionResult.IsSuccess)
+            {
+                System.Diagnostics.Debug.WriteLine($"iOS Write: Permission denied for {typeof(TDto).Name}");
+                return false;
+            }
+
+            // Convert DTO to HKObject (HKQuantitySample or HKWorkout)
+            HKObject? sample = ConvertDtoToHKObject(data);
+            if (sample == null)
+            {
+                System.Diagnostics.Debug.WriteLine($"iOS Write: Failed to convert {typeof(TDto).Name} to HKObject");
+                return false;
+            }
+
+            // Save to HealthKit
+            using var healthStore = new HKHealthStore();
+            var tcs = new TaskCompletionSource<bool>();
+
+            healthStore.SaveObject(sample, (success, error) =>
+            {
+                if (error != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"iOS Write Error: {error.LocalizedDescription}");
+                    tcs.TrySetResult(false);
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"iOS Write: Successfully wrote {typeof(TDto).Name}");
+                    tcs.TrySetResult(success);
+                }
+            });
+
+            using var ct = cancellationToken.Register(() => tcs.TrySetCanceled());
+            return await tcs.Task;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"iOS Write Exception: {ex.Message}");
+            return false;
+        }
+    }
+
+    private HKObject? ConvertDtoToHKObject<TDto>(TDto data) where TDto : HealthMetricBase
+    {
+        return data switch
+        {
+            StepsDto stepsDto => CreateStepsSample(stepsDto),
+            WeightDto weightDto => CreateWeightSample(weightDto),
+            HeightDto heightDto => CreateHeightSample(heightDto),
+            ActiveCaloriesBurnedDto caloriesDto => CreateActiveCaloriesBurnedSample(caloriesDto),
+            HeartRateDto heartRateDto => CreateHeartRateSample(heartRateDto),
+            WorkoutDto workoutDto => CreateWorkout(workoutDto),
+            _ => null
+        };
+    }
+
+    private HKQuantitySample CreateStepsSample(StepsDto dto)
+    {
+        var quantityType = HKQuantityType.Create(HKQuantityTypeIdentifier.StepCount)!;
+        var quantity = HKQuantity.FromQuantity(HKUnit.Count, dto.Count);
+        var startDate = (NSDate)dto.StartTime.UtcDateTime;
+        var endDate = (NSDate)dto.EndTime.UtcDateTime;
+
+        return HKQuantitySample.FromType(quantityType, quantity, startDate, endDate);
+    }
+
+    private HKQuantitySample CreateWeightSample(WeightDto dto)
+    {
+        var quantityType = HKQuantityType.Create(HKQuantityTypeIdentifier.BodyMass)!;
+        var valueInGrams = dto.Value * 1000.0; // Convert kg to grams
+        var quantity = HKQuantity.FromQuantity(HKUnit.Gram, valueInGrams);
+        var date = (NSDate)dto.Timestamp.UtcDateTime;
+
+        return HKQuantitySample.FromType(quantityType, quantity, date, date);
+    }
+
+    private HKQuantitySample CreateHeightSample(HeightDto dto)
+    {
+        var quantityType = HKQuantityType.Create(HKQuantityTypeIdentifier.Height)!;
+        var valueInMeters = dto.Value / 100.0; // Convert cm to meters
+        var quantity = HKQuantity.FromQuantity(HKUnit.Meter, valueInMeters);
+        var date = (NSDate)dto.Timestamp.UtcDateTime;
+
+        return HKQuantitySample.FromType(quantityType, quantity, date, date);
+    }
+
+    private HKQuantitySample CreateActiveCaloriesBurnedSample(ActiveCaloriesBurnedDto dto)
+    {
+        var quantityType = HKQuantityType.Create(HKQuantityTypeIdentifier.ActiveEnergyBurned)!;
+        var quantity = HKQuantity.FromQuantity(HKUnit.Kilocalorie, dto.Energy);
+        var startDate = (NSDate)dto.StartTime.UtcDateTime;
+        var endDate = (NSDate)dto.EndTime.UtcDateTime;
+
+        return HKQuantitySample.FromType(quantityType, quantity, startDate, endDate);
+    }
+
+    private HKQuantitySample CreateHeartRateSample(HeartRateDto dto)
+    {
+        var quantityType = HKQuantityType.Create(HKQuantityTypeIdentifier.HeartRate)!;
+        var unit = HKUnit.Count.UnitDividedBy(HKUnit.Minute);
+        var quantity = HKQuantity.FromQuantity(unit, dto.BeatsPerMinute);
+        var date = (NSDate)dto.Timestamp.UtcDateTime;
+
+        return HKQuantitySample.FromType(quantityType, quantity, date, date);
+    }
+
+    private HKWorkout CreateWorkout(WorkoutDto dto)
+    {
+        var activityType = MapActivityTypeToHKWorkoutActivityType(dto.ActivityType);
+        var startDate = (NSDate)dto.StartTime.UtcDateTime;
+        var endDate = (NSDate)dto.EndTime.UtcDateTime;
+        var duration = (dto.EndTime - dto.StartTime).TotalSeconds;
+
+        HKQuantity? totalEnergyBurned = null;
+        if (dto.EnergyBurned.HasValue)
+        {
+            totalEnergyBurned = HKQuantity.FromQuantity(HKUnit.Kilocalorie, dto.EnergyBurned.Value);
+        }
+
+        HKQuantity? totalDistance = null;
+        if (dto.Distance.HasValue)
+        {
+            totalDistance = HKQuantity.FromQuantity(HKUnit.Meter, dto.Distance.Value);
+        }
+
+        return HKWorkout.Create(
+            activityType,
+            startDate,
+            endDate,
+            duration,
+            totalEnergyBurned,
+            totalDistance,
+            (NSDictionary?)null
+        );
+    }
+
+    private HKWorkoutActivityType MapActivityTypeToHKWorkoutActivityType(ActivityType activityType)
+    {
+        return activityType switch
+        {
+            ActivityType.Running => HKWorkoutActivityType.Running,
+            ActivityType.Cycling => HKWorkoutActivityType.Cycling,
+            ActivityType.Walking => HKWorkoutActivityType.Walking,
+            ActivityType.Swimming => HKWorkoutActivityType.Swimming,
+            ActivityType.Hiking => HKWorkoutActivityType.Hiking,
+            ActivityType.Yoga => HKWorkoutActivityType.Yoga,
+            ActivityType.FunctionalStrengthTraining => HKWorkoutActivityType.FunctionalStrengthTraining,
+            ActivityType.TraditionalStrengthTraining => HKWorkoutActivityType.TraditionalStrengthTraining,
+            ActivityType.Elliptical => HKWorkoutActivityType.Elliptical,
+            ActivityType.Rowing => HKWorkoutActivityType.Rowing,
+            ActivityType.Pilates => HKWorkoutActivityType.Pilates,
+            ActivityType.Dancing => HKWorkoutActivityType.Dance,
+            ActivityType.Soccer => HKWorkoutActivityType.Soccer,
+            ActivityType.Basketball => HKWorkoutActivityType.Basketball,
+            ActivityType.Baseball => HKWorkoutActivityType.Baseball,
+            ActivityType.Tennis => HKWorkoutActivityType.Tennis,
+            ActivityType.Golf => HKWorkoutActivityType.Golf,
+            ActivityType.Badminton => HKWorkoutActivityType.Badminton,
+            ActivityType.TableTennis => HKWorkoutActivityType.TableTennis,
+            ActivityType.Volleyball => HKWorkoutActivityType.Volleyball,
+            ActivityType.Cricket => HKWorkoutActivityType.Cricket,
+            ActivityType.Rugby => HKWorkoutActivityType.Rugby,
+            ActivityType.AmericanFootball => HKWorkoutActivityType.AmericanFootball,
+            ActivityType.Skiing => HKWorkoutActivityType.DownhillSkiing,
+            ActivityType.Snowboarding => HKWorkoutActivityType.Snowboarding,
+            ActivityType.Surfing => HKWorkoutActivityType.SurfingSports,
+            ActivityType.Sailing => HKWorkoutActivityType.Sailing,
+            ActivityType.MartialArts => HKWorkoutActivityType.MartialArts,
+            ActivityType.Boxing => HKWorkoutActivityType.Boxing,
+            ActivityType.Wrestling => HKWorkoutActivityType.Wrestling,
+            ActivityType.Climbing => HKWorkoutActivityType.Climbing,
+            ActivityType.CrossTraining => HKWorkoutActivityType.CrossTraining,
+            ActivityType.StairClimbing => HKWorkoutActivityType.StairClimbing,
+            ActivityType.JumpRope => HKWorkoutActivityType.JumpRope,
+            ActivityType.Other => HKWorkoutActivityType.Other,
+            _ => HKWorkoutActivityType.Other
+        };
     }
 }
